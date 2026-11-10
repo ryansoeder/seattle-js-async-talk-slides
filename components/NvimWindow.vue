@@ -6,10 +6,13 @@ withDefaults(defineProps<{
   list?: string[]
   /** How many `list` lines are visible; pass `$clicks` */
   shown?: number
+  /** Index of a `list` line to select, like a visual-mode selection */
+  highlight?: number
 }>(), {
   title: () => [],
   list: () => [],
   shown: Infinity,
+  highlight: -1,
 })
 
 const ROWS = 30
@@ -27,7 +30,7 @@ const ROWS = 30
         </div>
       </div>
       <div v-if="list.length" class="list">
-        <div v-for="(item, i) in list" :key="i" class="item" :class="{ shown: i < shown }">
+        <div v-for="(item, i) in list" :key="i" class="item" :class="{ shown: i < shown, visual: i === highlight }">
           <span class="bullet">-</span>
           <span>{{ item }}</span>
         </div>
@@ -93,9 +96,11 @@ const ROWS = 30
   font-size: 32px;
   line-height: 1.3;
 }
-/* Title above a list: pack them together in the middle and shrink to fit */
+/* Title above a list: pack them together and shrink to fit. Pinned to a fixed top
+   (not centered) so slides that fade into each other keep matching lines in place. */
 .buffer.with-title {
-  align-content: center;
+  align-content: start;
+  padding-top: 112px;
   gap: 28px;
 }
 .buffer.with-title .title {
@@ -110,7 +115,7 @@ const ROWS = 30
   gap: 0.6em;
   opacity: 0;
   translate: 0 10px;
-  transition: opacity 400ms, translate 400ms;
+  transition: opacity 400ms, translate 400ms, background-color 200ms;
 }
 .item.shown {
   opacity: 1;
@@ -119,6 +124,15 @@ const ROWS = 30
 .bullet {
   flex: none;
   color: var(--mauve);
+}
+/* Mocha's Visual highlight: the line looks selected with V */
+.item {
+  width: fit-content;
+  margin-inline: -0.3em;
+  padding-inline: 0.3em;
+}
+.item.visual {
+  background: var(--surface1);
 }
 
 /* A screenshot dropped in the slot: centered, as large as fits */

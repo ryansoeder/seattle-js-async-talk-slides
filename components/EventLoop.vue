@@ -351,7 +351,7 @@ const tokens = computed(() => {
         </svg>
       </Transition>
       <div class="loop-body">
-        <svg class="loop-icon" :class="{ 'spinning': actives.includes('loop'), 'yields-to-note': shows('loop') }" viewBox="0 0 64 64" aria-hidden="true">
+        <svg class="loop-icon" :class="{ 'spinning': actives.includes('loop'), 'yields-to-note': shows('loop') || (state.render && height < 300) }" viewBox="0 0 64 64" aria-hidden="true">
           <g fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter">
             <path d="M13 28 A20 20 0 0 1 47 17" />
             <path d="M39 12 L48 16 L45 25" />
@@ -665,7 +665,8 @@ const tokens = computed(() => {
 .compact .loop-note {
   font-size: 17px;
 }
-/* Short on room: the description replaces the icon */
+/* Short on room: the description replaces the icon (and so does the render badge
+   on the shortest diagrams, where icon + badge + caption don't fit) */
 .compact .loop-icon.yields-to-note {
   display: none;
 }
