@@ -1,0 +1,15 @@
+{
+  "name": "async-scheduling-talk-slides",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "slidev --open",
+    "build": "slidev build",
+    "export": "slidev export"
+  },
+  "devDependencies": {
+    "@ktym4a/slidev-theme-ktym4a": "^0.3.2",
+    "@slidev/cli": "^53.1.0",
+    "playwright-chromium": "^1.65.0"
+  }
+}
