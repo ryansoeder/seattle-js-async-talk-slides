@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "slidev --open",
     "build": "slidev build",
-    "export": "slidev export"
+    "export": "slidev export",
+    "steps": "node scripts/steps.mjs",
+    "shots": "node scripts/shots.cjs",
+    "trace": "node scripts/trace.cjs"
   },
   "devDependencies": {
     "@ktym4a/slidev-theme-ktym4a": "^0.3.2",

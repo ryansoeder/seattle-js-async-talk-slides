@@ -139,13 +139,15 @@ const ROWS = 30
 .buffer :slotted(img) {
   display: block;
   max-width: 88%;
-  max-height: 80%;
+  /* In slide pixels (the canvas is 552 tall): a % here has no definite height to
+     resolve against, so tall images would run off the slide */
+  max-height: 440px;
   object-fit: contain;
 }
 /* For transparent images with dark ink: a light Catppuccin Latte card behind them */
 .buffer :slotted(img.paper) {
   max-width: 94%;
-  max-height: 88%;
+  max-height: 485px;
   padding: 18px 20px;
   background: #eff1f5;
 }

@@ -77,13 +77,13 @@ The event loop and these queues come from the browser, not the JS engine.
 ---
 
 ```yaml
-clicks: 46
+clicks: 47
 ```
 
 <div style="--slidev-code-font-size: 18px; --slidev-code-line-height: 22px">
 <CodeTicks :shown="$clicks" :ticks="['tasks', 'stack', 'stack', 'tasks', 'micro', 'micro', null]">
 
-```js {all|all|all|all|all|all|all|1|1|1|1|1|2|2|3|4|5|6|4|none|none|5|5|none|none|none|none|4|4|none|none|none|6|6|6|6|6|6|6|6|none|none|none|none|1|2|2}
+```js {all|all|all|all|all|all|all|1|1|1|1|1|2|2|2,3|2,4|2,5|2,6|2|none|4|none|5|5|none|none|none|none|4|4|none|none|none|6|6|6|6|6|6|6|6|none|none|none|none|1|2|2}
 button.addEventListener('click', search);
 function search() {
 	showSpinner();
@@ -115,8 +115,9 @@ function search() {
   { stack: [{ id: 'click', label: 'search()' }, 'setTimeout()'], apis: [{ id: 'listener', label: 'click → search', at: 'addEventListener' }, { id: 'log', label: 'logSearch', at: 'setTimeout' }], look: 'stack', active: ['stack', 'apis'], caption: 'timer goes to the browser' },
   { stack: [{ id: 'click', label: 'search()' }, 'queueMicrotask()'], apis: [{ id: 'listener', label: 'click → search', at: 'addEventListener' }, { id: 'log', label: 'logSearch', at: 'setTimeout' }], microtasks: [{ id: 'save', label: 'saveQuery' }], look: 'stack', active: ['stack', 'micro'], caption: 'straight to the microtask queue' },
   { stack: [{ id: 'click', label: 'search()' }, 'fetch()'], apis: [{ id: 'listener', label: 'click → search', at: 'addEventListener' }, { id: 'log', label: 'logSearch', at: 'setTimeout' }, { id: 'req', label: 'GET /trials', at: 'fetch' }], microtasks: [{ id: 'save', label: 'saveQuery' }], look: 'stack', active: ['stack', 'apis'], caption: 'request goes to the browser' },
-  { stack: [{ id: 'click', label: 'search()' }], apis: [{ id: 'listener', label: 'click → search', at: 'addEventListener' }, { id: 'req', label: 'GET /trials', at: 'fetch' }], tasks: [{ id: 'log', label: 'logSearch' }], microtasks: [{ id: 'save', label: 'saveQuery' }], look: 'stack', active: 'tasks', caption: 'timer done → task queued' },
-  { apis: [{ id: 'listener', label: 'click → search', at: 'addEventListener' }, { id: 'req', label: 'GET /trials', at: 'fetch' }], tasks: [{ id: 'log', label: 'logSearch' }], microtasks: [{ id: 'save', label: 'saveQuery' }], look: 'stack', active: 'stack', caption: 'search() returns → stack empty' },
+  { stack: [{ id: 'click', label: 'search()' }], apis: [{ id: 'listener', label: 'click → search', at: 'addEventListener' }, { id: 'log', label: 'logSearch', at: 'setTimeout' }, { id: 'req', label: 'GET /trials', at: 'fetch' }], microtasks: [{ id: 'save', label: 'saveQuery' }], look: 'stack', active: 'stack', caption: 'fetch() returns' },
+  { apis: [{ id: 'listener', label: 'click → search', at: 'addEventListener' }, { id: 'log', label: 'logSearch', at: 'setTimeout' }, { id: 'req', label: 'GET /trials', at: 'fetch' }], microtasks: [{ id: 'save', label: 'saveQuery' }], look: 'stack', active: 'stack', caption: 'search() returns → stack empty' },
+  { apis: [{ id: 'listener', label: 'click → search', at: 'addEventListener' }, { id: 'req', label: 'GET /trials', at: 'fetch' }], tasks: [{ id: 'log', label: 'logSearch' }], microtasks: [{ id: 'save', label: 'saveQuery' }], look: 'stack', active: 'tasks', caption: 'timer done → task queued' },
   { apis: [{ id: 'listener', label: 'click → search', at: 'addEventListener' }, { id: 'req', label: 'GET /trials', at: 'fetch' }], tasks: [{ id: 'log', label: 'logSearch' }], microtasks: [{ id: 'save', label: 'saveQuery' }], look: 'micro', active: 'micro', caption: 'microtasks first' },
   { stack: [{ id: 'save', label: 'saveQuery' }], apis: [{ id: 'listener', label: 'click → search', at: 'addEventListener' }, { id: 'req', label: 'GET /trials', at: 'fetch' }], tasks: [{ id: 'log', label: 'logSearch' }], look: 'micro', active: 'stack', caption: 'saveQuery runs' },
   { stack: [{ id: 'save', label: 'saveQuery' }], apis: [{ id: 'listener', label: 'click → search', at: 'addEventListener' }, { id: 'req', label: 'GET /trials', at: 'fetch' }], tasks: [{ id: 'log', label: 'logSearch' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
@@ -154,6 +155,7 @@ Dead simple, and every queue gets used, twice.
 The listener lives in the browser (Web APIs). A click doesn't call search() directly: the browser queues a task, and the event loop runs it when the stack is empty. User events are tasks.
 showSpinner() runs right away. setTimeout → browser → task queue. queueMicrotask → straight to the microtask queue. fetch → browser; its .then callback becomes a microtask when the response arrives.
 saveQuery runs before logSearch even though the timer was set first: microtasks first, then the next task.
+CHECK, simplified for the slide: search() is shown returning before the 0ms timer queues logSearch. In reality the timer can expire while search() is still running; it doesn't matter, because a queued task can't run until the stack is empty.
 First render opportunity (after the click task and its microtasks): that's when the spinner can actually show up. The last one is when the results can.
 .finally(hideSpinner): queued only when render finishes, and it still runs before the render opportunity. Microtasks queued while emptying the queue run in the same pass; chaining them never lets the browser paint in between.
 "Render opportunity": the browser may paint here. It isn't forced to.
@@ -459,17 +461,16 @@ When to use which (MDN): allSettled "when you have multiple asynchronous tasks t
 Our two APIs don't depend on each other: no FDA label shouldn't throw away the publications.
 Dates, if asked: standardized in ES2020; MDN says it's been in every major browser since July 2020.
 MDN: developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/allSettled
+Demo scenario (DEMO-SPEC): only trials with investigational drugs are selected, so openFDA answers 404. fetchDrugInfo checks res.ok and throws, so its promise rejects.
+Same event loop timeline as Promise.all (openFDA answers last either way); only the ending differs. Promise.all: the await throws, .catch(showEnrichError) replaces the panel with an error and PubMed's results are thrown away. allSettled: renderFailureNotice ("No FDA label found for these drugs.") plus the Publications section.
 -->
 
 ---
 
-```yaml
-clicks: 47
-```
+<NvimWindow>
+<div style="--slidev-code-font-size: 14px; --slidev-code-line-height: 26px">
 
-<div style="--slidev-code-font-size: 14px; --slidev-code-line-height: 20px">
-
-```js {all|none|none|none|none|1|2|2|2|2|2|2|2|2|2|none|none|none|none|none|none|none|none|none|none|none|none|none|none|none|none|none|none|none|3|3|3|5|5|4|4|6|7|7|none|none|none|none}
+```js
 showSpinner();
 const outcomesPerApi = await Promise.allSettled(apis.map((api) => api.fetchDetails(selectedTrials)));
 outcomesPerApi.forEach((outcome, i) => {
@@ -480,67 +481,14 @@ hideSpinner();
 ```
 
 </div>
-
-<EventLoop class="mt-3" :height="340" :steps="[
-  { explain: ['apis'] },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'tasks', active: 'tasks', caption: 'waiting for a click' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], tasks: [{ id: 'click', label: 'enrichSelectedTrials' }], look: 'tasks', active: 'tasks', caption: 'click → task queued' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'tasks', active: 'stack', caption: 'the task runs' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }, 'showSpinner()'], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'spinner on (not painted yet)' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }, { id: 'map', label: 'map()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'map calls the callback' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }, { id: 'map', label: 'map()' }, { id: 'cb-fda', label: 'Drug info callback' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }], look: 'stack', active: ['stack', 'apis'], caption: 'request goes to the browser' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }, { id: 'map', label: 'map()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }], look: 'stack', active: 'stack', caption: 'map keeps the promise' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }, { id: 'map', label: 'map()' }, { id: 'cb-pub', label: 'Publications callback' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }, { id: 'pub', label: 'GET PubMed', at: 'fetch' }], look: 'stack', active: ['stack', 'apis'], caption: 'second callback, second request' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }, { id: 'map', label: 'map()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }, { id: 'pub', label: 'GET PubMed', at: 'fetch' }], look: 'stack', active: 'stack', caption: 'map keeps that one too' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }, { id: 'pub', label: 'GET PubMed', at: 'fetch' }], look: 'stack', active: 'stack', caption: 'map returns two promises' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }, 'Promise.allSettled()'], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }, { id: 'pub', label: 'GET PubMed', at: 'fetch' }], look: 'stack', active: 'stack', caption: 'allSettled() combines them' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }, { id: 'pub', label: 'GET PubMed', at: 'fetch' }], look: 'stack', active: 'stack', caption: 'one promise to await' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }, { id: 'pub', label: 'GET PubMed', at: 'fetch' }], look: 'stack', active: 'stack', caption: 'await pauses → stack empty' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }, { id: 'pub', label: 'GET PubMed', at: 'fetch' }], look: 'micro', active: 'micro', caption: 'any microtasks? none' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }, { id: 'pub', label: 'GET PubMed', at: 'fetch' }], look: 'micro', active: 'loop', render: true, caption: 'paint: spinner shows' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }, { id: 'pub', label: 'GET PubMed', at: 'fetch' }], look: 'tasks', active: 'tasks', caption: 'no tasks → wait' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }], microtasks: [{ id: 'set-pub', label: 'allSettled: 1 of 2' }], look: 'tasks', active: ['apis', 'micro'], caption: 'PubMed responds → microtask' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }], microtasks: [{ id: 'set-pub', label: 'allSettled: 1 of 2' }], look: 'micro', active: 'micro', caption: 'microtasks first' },
-  { stack: [{ id: 'set-pub', label: 'allSettled: 1 of 2' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }], look: 'micro', active: 'stack', caption: 'stores it: fulfilled' },
-  { stack: [{ id: 'set-pub', label: 'allSettled: 1 of 2' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }], look: 'stack', active: 'stack', caption: 'still waiting on openFDA' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }], look: 'micro', active: 'micro', caption: 'more microtasks? none' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }], look: 'micro', active: 'loop', render: true, caption: 'paint: still the spinner' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }, { id: 'fda', label: 'GET openFDA', at: 'fetch' }], look: 'tasks', active: 'tasks', caption: 'no tasks → wait' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], microtasks: [{ id: 'set-fda', label: 'allSettled: 2 of 2' }], look: 'tasks', active: ['apis', 'micro'], caption: 'openFDA 404 → rejected' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], microtasks: [{ id: 'set-fda', label: 'allSettled: 2 of 2' }], look: 'micro', active: 'micro', caption: 'microtasks first' },
-  { stack: [{ id: 'set-fda', label: 'allSettled: 2 of 2' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'micro', active: 'stack', caption: 'stores it: rejected' },
-  { stack: [{ id: 'set-fda', label: 'allSettled: 2 of 2' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
-  { stack: [{ id: 'set-fda', label: 'allSettled: 2 of 2' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: '2 of 2 → allSettled() resolves' },
-  { stack: [{ id: 'set-fda', label: 'allSettled: 2 of 2' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], microtasks: [{ id: 'click', label: 'enrichSelectedTrials()' }], look: 'stack', active: 'micro', caption: 'await resumes → microtask queued' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], microtasks: [{ id: 'click', label: 'enrichSelectedTrials()' }], look: 'stack', active: 'stack', caption: 'allSettled done → stack empty' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], microtasks: [{ id: 'click', label: 'enrichSelectedTrials()' }], look: 'micro', active: 'micro', caption: 'more microtasks? one' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'micro', active: 'stack', caption: 'enrichSelectedTrials() resumes' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }, { id: 'forEach', label: 'forEach()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'one outcome at a time, array order' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }, { id: 'forEach', label: 'forEach()' }, { id: 'r-di', label: 'renderFailureNotice()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'Drug info rejected → notice' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }, { id: 'forEach', label: 'forEach()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'renderFailureNotice() returns' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }, { id: 'forEach', label: 'forEach()' }, { id: 'r-pub', label: 'renderDetailsSection()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'Publications fulfilled → section' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }, { id: 'forEach', label: 'forEach()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'renderDetailsSection() returns' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'forEach returns' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }, 'hideSpinner()'], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'spinner off, after the results' },
-  { stack: [{ id: 'click', label: 'enrichSelectedTrials()' }], apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'hideSpinner() returns' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'returns → stack empty' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'micro', active: 'micro', caption: 'more microtasks? none' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'micro', active: 'loop', render: true, caption: 'paint: notice + Publications' },
-  { apis: [{ id: 'listener', label: 'click → enrich', at: 'addEventListener' }], look: 'tasks', active: 'tasks', caption: 'no tasks → wait' },
-]" />
+</NvimWindow>
 
 <!--
-The Segment 2 fix from 02-allsettled (enrichSelectedTrials in app.js), same event loop run as the Promise.all slide. Opens paused.
-Demo scenario (DEMO-SPEC): only trials with investigational drugs are selected, so openFDA answers 404. fetch doesn't reject on a 404; fetchDrugInfo checks res.ok and throws, so its promise rejects.
-Everything up to the first paint is the same as Promise.all: both requests start, await pauses, the spinner shows.
-PubMed answers first (offline mode: 340ms vs 1,200ms): allSettled stores "fulfilled", nothing renders yet.
-openFDA's 404: allSettled stores "rejected" and, since everything has settled, fulfills anyway. With Promise.all this rejection would have rejected the whole thing: .catch(showEnrichError) would replace the panel with an error and PubMed's results would be thrown away.
-forEach walks the outcomes in array order: Drug information is rejected → renderFailureNotice ("No FDA label found for these drugs."), Publications is fulfilled → renderDetailsSection. Then hideSpinner and one paint.
-CHECK, simplified for the slide: each response takes several promise hops before allSettled sees it (fetch() resolves, res.ok check / res.json(), fetchDetails() settles; offline mode adds a setTimeout first). Shown as one microtask per response.
-CHECK, also skipped: the do-nothing microtask from .catch(showEnrichError) when enrichSelectedTrials()'s promise settles at the end.
+From 02-allsettled, app.js: enrichSelectedTrials(), just showSpinner() through hideSpinner() (the lines between the FIX markers), unindented. Cut from the app: the ⚡ FIX / END FIX marker comments (the fix comment reads "Promise.allSettled waits for every outcome, so one failed service can't throw away the others") and the performance.mark / performance.measure lines.
+Same shape as the Promise.all fix: map() starts both requests, one await, hideSpinner() after it. The only change is what comes back: an outcome per API instead of the bare values.
+Each outcome has a status. Fulfilled → renderDetailsSection() with outcome.value. Rejected → renderFailureNotice() with that API's failMessage, from the apis array: "No FDA label found for these drugs." / "Publications are unavailable right now."
+Outcomes come back in array order, so apis[i] matches outcome i, whichever response arrived first.
+The click handler still has .catch(showEnrichError), but allSettled never rejects, so it only catches bugs in the rendering code now.
 -->
 
 ---
@@ -756,25 +704,13 @@ The lanes are empty on purpose: point and talk. Possible lanes, top to bottom: u
 
 ---
 
-<NvimWindow>
-  <img src="./images/availability.png" style="width: 70%" alt="Browser support for scheduler.yield(): Chrome yes, Edge yes, Firefox yes, Safari no">
-</NvimWindow>
-
-<!--
-scheduler.yield() support, from MDN's compat data: Chrome and Edge 129 (Sept 2024), Firefox 142 (Aug 2025), Safari none. MDN marks it "Limited availability", not Baseline.
-The 04-scheduler-yield branch falls back to setTimeout(resolve, 0) where it's missing: await (globalThis.scheduler?.yield?.() ?? new Promise((resolve) => setTimeout(resolve, 0))).
--->
-
----
-
 ```yaml
-clicks: 51
-transition: fade
+clicks: 50
 ```
 
 <div style="--slidev-code-font-size: 14px; --slidev-code-line-height: 18px">
 
-```js {all|none|none|none|none|1-3|4-5|4-5|6|7|7|8|8|8|none|none|none|none|none|none|none|none|none|none|none|none|none|none|9|9|4-5|4-5|6-7|8|8|8|none|none|none|none|none|none|none|none|9|9|4-6|11|none|none|none|none}
+```js {all|none|none|none|none|1-3|4-5|4-5|6|7|7|8|8|8|none|none|none|none|none|none|none|none|none|none|none|none|none|none|9|9|4-5|6-7|8|8|8|none|none|none|none|none|none|none|none|9|9|4-6|11|none|none|none|none}
 const YIELD_EVERY_MS = 10;
 const matchScores = [];
 let lastYield = performance.now();
@@ -814,35 +750,34 @@ for (let i = 0; i < allTrials.length; i++) {
   { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y1', label: 'resolve' }], look: 'micro', active: 'micro', caption: 'any microtasks? none' },
   { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y1', label: 'resolve' }], look: 'micro', active: 'loop', render: true, caption: 'paint: the letter and the bar' },
   { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y1', label: 'resolve' }], look: 'tasks', active: 'tasks', caption: 'next: the continuation' },
-  { stack: [{ id: 'y1', label: 'resolve()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [], look: 'tasks', active: 'stack', caption: 'resolve() runs' },
-  { stack: [{ id: 'y1', label: 'resolve()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [], look: 'stack', active: 'stack', caption: 'back to the stack' },
-  { stack: [{ id: 'y1', label: 'resolve()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'micro', caption: 'promise resolves → resume queued' },
-  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'stack', caption: 'resolve() done → stack empty' },
-  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'micro', active: 'micro', caption: 'more microtasks? one' },
-  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [], look: 'micro', active: 'stack', caption: 'updateMatches() resumes' },
-  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [], look: 'stack', active: 'stack', caption: 'back to the stack' },
+  { stack: [{ id: 'y1', label: 'resolve()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'tasks', active: 'stack', caption: 'resolve() runs' },
+  { stack: [{ id: 'y1', label: 'resolve()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
+  { stack: [{ id: 'y1', label: 'resolve()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'micro', caption: 'promise resolves → resume queued' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'stack', caption: 'resolve() done → stack empty' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'micro', active: 'micro', caption: 'more microtasks? one' },
+  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'micro', active: 'stack', caption: 'updateMatches() resumes' },
+  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
   { stack: [{ id: 'click', label: 'updateMatches()' }, 'scoreTrial()'], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'next ~10ms chunk' },
-  { stack: [{ id: 'click', label: 'updateMatches()' }, 'scoreTrial()'], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], look: 'stack', active: 'tasks', caption: 'another script\'s timer is due' },
-  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], look: 'stack', active: 'stack', caption: '10ms up, bar updated' },
-  { stack: [{ id: 'click', label: 'updateMatches()' }, { id: 'sy', label: 'scheduler.yield()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y2', label: 'resolve' }, { id: 'other', label: 'other timer' }], look: 'stack', active: ['stack', 'tasks'], caption: 'cuts ahead of the timer' },
-  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y2', label: 'resolve' }, { id: 'other', label: 'other timer' }], look: 'stack', active: 'stack', caption: 'yield() returns a promise' },
-  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y2', label: 'resolve' }, { id: 'other', label: 'other timer' }], look: 'stack', active: 'stack', caption: 'await pauses → stack empty' },
-  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y2', label: 'resolve' }, { id: 'other', label: 'other timer' }], look: 'micro', active: 'micro', caption: 'any microtasks? none' },
-  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y2', label: 'resolve' }, { id: 'other', label: 'other timer' }], look: 'micro', active: 'loop', render: true, caption: 'browser skips the paint again' },
-  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y2', label: 'resolve' }, { id: 'other', label: 'other timer' }], look: 'tasks', active: 'tasks', caption: 'next: the continuation, not the timer' },
-  { stack: [{ id: 'y2', label: 'resolve()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], look: 'tasks', active: 'stack', caption: 'resolve() runs' },
-  { stack: [{ id: 'y2', label: 'resolve()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
-  { stack: [{ id: 'y2', label: 'resolve()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'micro', caption: 'promise resolves → resume queued' },
-  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'stack', caption: 'resolve() done → stack empty' },
-  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'micro', active: 'micro', caption: 'more microtasks? one' },
-  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], look: 'micro', active: 'stack', caption: 'updateMatches() resumes' },
-  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
-  { stack: [{ id: 'click', label: 'updateMatches()' }, 'scoreTrial()'], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], look: 'stack', active: 'stack', caption: 'repeat; the bar paints every ~100ms' },
-  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], look: 'stack', active: 'stack', caption: 'loop done → table rendered' },
-  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], look: 'stack', active: 'stack', caption: 'returns → stack empty' },
-  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], look: 'micro', active: 'micro', caption: 'any microtasks? none' },
-  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], look: 'micro', active: 'loop', render: true, caption: 'paint: results table' },
-  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'other', label: 'other timer' }], look: 'tasks', active: 'tasks', caption: 'the timer finally gets its turn' },
+  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: '10ms up, bar updated' },
+  { stack: [{ id: 'click', label: 'updateMatches()' }, { id: 'sy', label: 'scheduler.yield()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y2', label: 'resolve' }], look: 'stack', active: ['stack', 'tasks'], caption: 'continuation queued right away' },
+  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y2', label: 'resolve' }], look: 'stack', active: 'stack', caption: 'yield() returns a promise' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y2', label: 'resolve' }], look: 'stack', active: 'stack', caption: 'await pauses → stack empty' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y2', label: 'resolve' }], look: 'micro', active: 'micro', caption: 'any microtasks? none' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y2', label: 'resolve' }], look: 'micro', active: 'loop', render: true, caption: 'browser skips the paint again' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'y2', label: 'resolve' }], look: 'tasks', active: 'tasks', caption: 'next: the continuation' },
+  { stack: [{ id: 'y2', label: 'resolve()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'tasks', active: 'stack', caption: 'resolve() runs' },
+  { stack: [{ id: 'y2', label: 'resolve()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
+  { stack: [{ id: 'y2', label: 'resolve()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'micro', caption: 'promise resolves → resume queued' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'stack', caption: 'resolve() done → stack empty' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'micro', active: 'micro', caption: 'more microtasks? one' },
+  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'micro', active: 'stack', caption: 'updateMatches() resumes' },
+  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
+  { stack: [{ id: 'click', label: 'updateMatches()' }, 'scoreTrial()'], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'repeat; the bar paints every ~100ms' },
+  { stack: [{ id: 'click', label: 'updateMatches()' }], apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'loop done → table rendered' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'returns → stack empty' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'micro', active: 'micro', caption: 'any microtasks? none' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'micro', active: 'loop', render: true, caption: 'paint: results table' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'tasks', active: 'tasks', caption: 'no tasks → wait' },
 ]" />
 
 <!--
@@ -850,9 +785,312 @@ The Segment 4 fix from 04-scheduler-yield (the ⚡ FIX block in updateMatches) t
 Changed from the app on purpose: line 8 is plain await scheduler.yield(). The branch has the Safari fallback, await (globalThis.scheduler?.yield?.() ?? new Promise((resolve) => setTimeout(resolve, 0))); the next slide fades to it.
 No timer this time: scheduler.yield() queues the continuation right away, so nothing waits in Web APIs and there's no 4ms clamp.
 First yield: a keypress is already waiting. Input is urgent, so the continuation queues behind it: the keypress runs, then a paint (the letter and the bar), then the continuation.
-Second yield: an ordinary timer from some other script is waiting. The continuation cuts ahead of it: front of its queue. The timer only gets its turn once matching is done.
+Second yield: nothing else is waiting this time. The continuation goes straight into the task queue, the browser skips the paint again, and the continuation runs. When other tasks are waiting (a timer, a network response), the continuation goes ahead of them: front of its queue. Input still goes first, as in the first yield.
 "Doesn't always render": after a yield the browser gets a render opportunity and may skip it, because the continuation outranks rendering for a while. That's the skippy bar in the demo: it paints about every ~100ms.
-CHECK, illustrative: the other timer is made up to show the line-cutting (the app has none). Which render opportunities get skipped is up to the browser; these are examples, not a recording.
+CHECK, illustrative: which render opportunities get skipped is up to the browser; these are examples, not a recording.
 CHECK: Chrome lets high-priority work run ahead of rendering until rendering has been put off for about 100ms. Confirm the number in a DevTools recording before quoting it.
 CHECK, simplified: as on the setTimeout slide, the task that resolves the yield() promise is shown as resolve(), then the rest of updateMatches() resumes as a microtask.
+-->
+
+---
+
+<NvimWindow>
+  <img src="./images/availability.png" style="width: 70%" alt="Browser support for scheduler.yield(): Chrome yes, Edge yes, Firefox yes, Safari no">
+</NvimWindow>
+
+<!--
+scheduler.yield() support, from MDN's compat data: Chrome and Edge 129 (Sept 2024), Firefox 142 (Aug 2025), Safari none. MDN marks it "Limited availability", not Baseline.
+The 04-scheduler-yield branch falls back to setTimeout(resolve, 0) where it's missing: await (globalThis.scheduler?.yield?.() ?? new Promise((resolve) => setTimeout(resolve, 0))).
+-->
+
+---
+
+```yaml
+transition: fade
+```
+
+<NvimWindow>
+<div style="height: 400px; --slidev-code-font-size: 20px; --slidev-code-line-height: 28px">
+
+```js {8}
+const YIELD_EVERY_MS = 10;
+const matchScores = [];
+let lastYield = performance.now();
+for (let i = 0; i < allTrials.length; i++) {
+  matchScores[i] = scoreTrial(allTrials[i], patientProfile);
+  if (performance.now() - lastYield > YIELD_EVERY_MS) {
+    setProgressBar(i / allTrials.length);
+    await scheduler.yield();
+    lastYield = performance.now();
+  }
+}
+```
+
+</div>
+</NvimWindow>
+
+<!--
+The 04-scheduler-yield FIX block, simplified to a plain await scheduler.yield() (as on the event loop slide). The next click fades to the real line, with the Safari fallback.
+-->
+
+---
+
+```yaml
+transition: fade
+```
+
+<NvimWindow>
+<div style="height: 400px; --slidev-code-font-size: 20px; --slidev-code-line-height: 28px">
+
+```js {8-9}
+const YIELD_EVERY_MS = 10;
+const matchScores = [];
+let lastYield = performance.now();
+for (let i = 0; i < allTrials.length; i++) {
+  matchScores[i] = scoreTrial(allTrials[i], patientProfile);
+  if (performance.now() - lastYield > YIELD_EVERY_MS) {
+    setProgressBar(i / allTrials.length);
+    await (globalThis.scheduler?.yield?.() ??
+      new Promise((resolve) => setTimeout(resolve, 0)));
+    lastYield = performance.now();
+  }
+}
+```
+
+</div>
+</NvimWindow>
+
+<!--
+The real line from 04-scheduler-yield: await (globalThis.scheduler?.yield?.() ?? new Promise((resolve) => setTimeout(resolve, 0))); // Safari lacks scheduler.yield()
+Reformatted to fit: the line is broken in two, and its trailing comment (// Safari lacks scheduler.yield()) is left off. Same code.
+globalThis.scheduler?.yield?.(): optional chaining, so where scheduler or yield is missing (Safari) this is undefined instead of throwing, and ?? falls back to the setTimeout(0) promise from Segment 3.
+In Safari this behaves exactly like the 03-settimeout slide: no front-of-the-line continuation, and the 4ms clamp after 5 nested calls.
+-->
+
+---
+
+<NvimWindow>
+<div style="height: 400px; --slidev-code-font-size: 20px; --slidev-code-line-height: 28px">
+
+```js {8}
+const YIELD_EVERY_MS = 10;
+const matchScores = [];
+let lastYield = performance.now();
+for (let i = 0; i < allTrials.length; i++) {
+  matchScores[i] = scoreTrial(allTrials[i], patientProfile);
+  if (performance.now() - lastYield > YIELD_EVERY_MS) {
+    setProgressBar(i / allTrials.length);
+    await Promise.resolve();
+    lastYield = performance.now();
+  }
+}
+```
+
+</div>
+</NvimWindow>
+
+<!--
+From 03a-microtask, app.js: the attempt that doesn't help. Cut from the app: the trailing comment on the await line, "a microtask: it runs before the browser can paint, so nothing changes" (the punchline).
+Why it's the original freeze in disguise: Promise.resolve() is already resolved, so await queues the rest of updateMatches() as a microtask, not a task.
+The first await ends the click task's script, and the microtask checkpoint runs right away: the next chunk runs inside that microtask, hits await, queues another microtask, and the checkpoint keeps going. Microtasks queued while draining run in the same pass.
+So every chunk runs back to back in one microtask checkpoint, before any render opportunity and before any other task: no paint, no typing, the bar jumps 0% → 100%. Exactly the 00-baseline behavior, with extra steps.
+The lesson: a microtask "yield" never lets the browser paint. Yielding means ending the task: setTimeout (a new task) or scheduler.yield() (a prioritized task) do; a resolved promise doesn't.
+DevTools (DEMO-SPEC): one long task, same as the baseline.
+-->
+
+---
+
+<NvimWindow
+  :title="['new Worker(url)']"
+  :list="[
+    'Accepts a same-origin script URL and options',
+    'Runs that script on a background thread',
+    'No DOM: sends data with postMessage() and listens for data with onMessage()',
+    'Messages are copied, not shared',
+  ]"
+/>
+
+<!--
+From MDN, Using Web Workers: "Web Workers are a simple means for web content to run scripts in background threads. The worker thread can perform tasks without interfering with the user interface."
+Worker() constructor: "creates a Worker object that executes the classic script or module at the specified URL." The URL "must be same-origin with the caller's document, or a blob: or data: URL." Options: type ('classic', the default, or 'module'), name (for debugging), credentials (module workers only).
+No DOM: "you can't directly manipulate the DOM from inside a worker, or use some default methods and properties of the window object." The worker has its own global scope (DedicatedWorkerGlobalScope, reached as self), its own event loop.
+Messages: "both sides send their messages using the postMessage() method, and respond to messages via the onmessage event handler." "The data is copied rather than shared" (structured cloning). Transferable objects (like an ArrayBuffer) can move instead of copy; SharedArrayBuffer can share memory.
+In the app (05-worker): const matchWorker = new Worker('worker.js'), a classic worker that pulls in matcher.js with importScripts(). The page posts allTrials once per search (a copy, which costs time for a big list), then posts the patient profile for each match. The worker posts progress about every 16ms and the scores at the end; the page does all the rendering.
+Ending one, if asked: worker.terminate() from the page kills the thread immediately.
+MDN: developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers and .../Web/API/Worker/Worker
+-->
+
+---
+
+```yaml
+clicks: 8
+```
+
+<NvimSplit left="app.js" right="worker.js" :font-size="14" :line-height="19" :steps="[
+  { left: 'all', right: 'all' },
+  { left: '4', right: 'none' },
+  { left: 'none', right: '7-11' },
+  { left: '12', right: 'none' },
+  { left: 'none', right: '7,12-15' },
+  { left: 'none', right: '17' },
+  { left: '8,10', right: 'none' },
+  { left: 'none', right: '21' },
+  { left: '8-9', right: 'none' },
+]">
+<template #left>
+
+```js
+const matchWorker = new Worker('worker.js');
+
+// … at the end of each search()
+matchWorker.postMessage({ allTrials });
+
+// … in updateMatches()
+const matchScores = await new Promise((resolve) => {
+  matchWorker.onmessage = ({ data: message }) => {
+    if (message.matchScores) resolve(message.matchScores);
+    else setProgressBar(message.progress);
+  };
+  matchWorker.postMessage({ patientProfile });
+});
+```
+
+</template>
+<template #right>
+
+```js
+importScripts('matcher.js');
+
+const PROGRESS_EVERY_MS = 16;
+
+let allTrials = [];
+
+onmessage = ({ data: message }) => {
+  if (message.allTrials) {
+    allTrials = message.allTrials;
+    return;
+  }
+  const matchScores = [];
+  let lastProgressPost = performance.now();
+  for (let i = 0; i < allTrials.length; i++) {
+    matchScores[i] = scoreTrial(allTrials[i], message.patientProfile);
+    if (performance.now() - lastProgressPost > PROGRESS_EVERY_MS) {
+      postMessage({ progress: i / allTrials.length });
+      lastProgressPost = performance.now();
+    }
+  }
+  postMessage({ matchScores });
+};
+```
+
+</template>
+</NvimSplit>
+
+<!--
+From 05-worker. Left, app.js: the three ⚡ FIX blocks, joined with // … where code between them is cut (the worker is created once at page load; the trials are posted at the end of every search(); updateMatches() waits for the worker's messages). Right, worker.js: the whole file. Cut from both: the ⚡ FIX marker comments and the trailing comments (// about once per frame, // sent once per search, kept for every match after that, // so the bar moves smoothly) and the performance.mark/measure lines around the allTrials post.
+Two files, two threads: everything on the left runs on the main thread; everything on the right runs on the worker's own thread, with its own event loop.
+Clicks follow every message, one side at a time: 1) the page posts allTrials (after a search) → 2) the worker's onmessage stores them; 3) the page posts the profile (Update matches) → 4) the worker's onmessage starts scoring (the loop down to scoreTrial()); 5) the worker posts progress → 6) the page's onmessage sets the bar; 7) the worker posts the scores → 8) the page's onmessage resolves the promise.
+The loop on the right is the 00-baseline loop, unchanged: no yielding. It doesn't need to: it isn't blocking the page.
+postMessage() both ways; onmessage on both sides. The page posts allTrials once per search (a copy: structured clone, done on the main thread, the one cost the worker doesn't remove) and the profile per match. The worker posts progress every 16ms (about once per frame) and the scores at the end.
+The worker can't touch the DOM, so it never calls setProgressBar() or renderTable(): it only computes and sends results. The page does the rendering.
+Note: DEMO-SPEC says the worker posts progress "about every 5%"; the code posts every 16ms. The slides follow the code.
+-->
+
+---
+
+<NvimWindow>
+  <img src="./images/tin-can.jpg" alt="Two kids talking through a tin-can phone: one inside a play tent, one sitting outside, a string stretched between their cans">
+</NvimWindow>
+
+<!--
+A tin-can phone: two kids in two places, connected only by the string.
+The main thread and the worker are the same: separate threads, each doing its own thing, and the only way between them is a message (postMessage / onmessage).
+The kid in the tent can't reach out and grab anything outside: a worker can't touch the DOM.
+What travels down the string is a copy of what was said, not the kid: messages are copied, not shared.
+-->
+
+---
+
+```yaml
+clicks: 49
+```
+
+<div style="--slidev-code-font-size: 14px; --slidev-code-line-height: 18px">
+
+```js {all|all|none|none|none|none|2-5|6|6|1|none|none|none|none|none|none|none|none|none|none|none|none|none|none|none|2|2|4|4|none|none|none|none|none|none|none|2|2|3|3|3|none|none|1|1|none|none|none|none|none}
+const matchScores = await new Promise((resolve) => {
+  matchWorker.onmessage = ({ data: message }) => {
+    if (message.matchScores) resolve(message.matchScores);
+    else setProgressBar(message.progress);
+  };
+  matchWorker.postMessage({ patientProfile });
+});
+```
+
+</div>
+
+<EventLoop class="mt-2" worker :height="345" :steps="[
+  { explain: ['apis'], hidden: ['worker'] },
+  { explain: ['apis'], active: 'worker' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'tasks', active: 'tasks', caption: 'waiting for a click' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'click', label: 'updateMatches' }], look: 'tasks', active: 'tasks', caption: 'click → task queued' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], stack: [{ id: 'click', label: 'updateMatches()' }], look: 'tasks', active: 'stack', caption: 'the task runs' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], stack: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], stack: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'stack', caption: 'listen for the worker\'s messages' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], stack: [{ id: 'click', label: 'updateMatches()' }, 'postMessage()'], workerTasks: [{ id: 'msg', label: 'profile' }], look: 'stack', active: ['stack', 'worker'], caption: 'profile copied to the worker' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], stack: [{ id: 'click', label: 'updateMatches()' }], workerTasks: [{ id: 'msg', label: 'profile' }], look: 'stack', active: 'stack', caption: 'postMessage() returns' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerTasks: [{ id: 'msg', label: 'profile' }], look: 'stack', active: 'stack', caption: 'await pauses → stack empty' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }], look: 'stack', active: 'worker', caption: 'worker thread: onmessage runs' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], look: 'stack', active: 'worker', caption: 'worker scores the trials' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], look: 'micro', active: 'micro', caption: 'any microtasks? none' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], look: 'micro', active: 'loop', render: true, caption: 'paint' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], look: 'tasks', active: 'tasks', caption: 'no tasks → wait' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], tasks: [{ id: 'key', label: 'keypress' }], look: 'tasks', active: 'tasks', caption: 'you type → keypress queued' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], stack: [{ id: 'key', label: 'keypress' }], look: 'tasks', active: 'stack', caption: 'runs right away: nothing in its way' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], stack: [{ id: 'key', label: 'keypress' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], look: 'stack', active: 'stack', caption: 'keypress done' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], look: 'micro', active: 'micro', caption: 'any microtasks? none' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], look: 'micro', active: 'loop', render: true, caption: 'paint: the letter shows' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], look: 'tasks', active: 'tasks', caption: 'no tasks → wait' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-pm', label: 'postMessage()' }], look: 'tasks', active: 'worker', caption: '16ms up: worker posts progress' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-pm', label: 'postMessage()' }], tasks: [{ id: 'p1', label: 'progress' }], look: 'tasks', active: ['worker', 'tasks'], caption: 'message → task queued' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], tasks: [{ id: 'p1', label: 'progress' }], look: 'tasks', active: 'worker', caption: 'worker keeps scoring' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], stack: [{ id: 'p1', label: 'onmessage()' }], look: 'tasks', active: 'stack', caption: 'main thread: onmessage runs' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], stack: [{ id: 'p1', label: 'onmessage()' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], stack: [{ id: 'p1', label: 'onmessage()' }, 'setProgressBar()'], look: 'stack', active: 'stack', caption: 'bar updated' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], stack: [{ id: 'p1', label: 'onmessage()' }], look: 'stack', active: 'stack', caption: 'setProgressBar() returns' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], look: 'stack', active: 'stack', caption: 'onmessage done → stack empty' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], look: 'micro', active: 'micro', caption: 'any microtasks? none' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], look: 'micro', active: 'loop', render: true, caption: 'paint: the bar moves' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-sc', label: 'scoreTrial()' }], look: 'tasks', active: 'tasks', caption: 'repeat every ~16ms: smooth bar' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-pm', label: 'postMessage()' }], look: 'tasks', active: 'worker', caption: 'done: worker posts the scores' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], workerStack: [{ id: 'msg', label: 'onmessage()' }, { id: 'w-pm', label: 'postMessage()' }], tasks: [{ id: 'done', label: 'matchScores' }], look: 'tasks', active: ['worker', 'tasks'], caption: 'message → task queued' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'done', label: 'matchScores' }], look: 'tasks', active: 'worker', caption: 'worker thread goes idle' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], stack: [{ id: 'done', label: 'onmessage()' }], look: 'tasks', active: 'stack', caption: 'main thread: onmessage runs' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], stack: [{ id: 'done', label: 'onmessage()' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], stack: [{ id: 'done', label: 'onmessage()' }, 'resolve()'], look: 'stack', active: 'stack', caption: 'scores in → resolve()' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], stack: [{ id: 'done', label: 'onmessage()' }, 'resolve()'], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'micro', caption: 'promise resolves → resume queued' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], stack: [{ id: 'done', label: 'onmessage()' }], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'stack', caption: 'resolve() returns' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'stack', caption: 'onmessage done → stack empty' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], microtasks: [{ id: 'click', label: 'updateMatches()' }], look: 'micro', active: 'micro', caption: 'more microtasks? one' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], stack: [{ id: 'click', label: 'updateMatches()' }], look: 'micro', active: 'stack', caption: 'updateMatches() resumes' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], stack: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'stack', caption: 'back to the stack' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], stack: [{ id: 'click', label: 'updateMatches()' }], look: 'stack', active: 'stack', caption: 'table rendered' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'stack', active: 'stack', caption: 'returns → stack empty' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'micro', active: 'micro', caption: 'any microtasks? none' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'micro', active: 'loop', render: true, caption: 'paint: results table' },
+  { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'tasks', active: 'tasks', caption: 'no tasks → wait' },
+]" />
+
+<!--
+The Segment 5 fix from 05-worker through the event loop: the updateMatches() FIX block on top, the main thread's event loop, and a new box for the worker thread with its own stack and task queue. Opens paused.
+Click 1 reveals the Worker Thread box (Web APIs slides over to make room), the same way the Microtask Queue appeared on the explainer slide: a second thread, with its own call stack and task queue, and its own event loop.
+Assumes a search already ran, so the worker already has a copy of allTrials.
+The click task: set onmessage, post the profile to the worker (a copy), await. The main stack is empty almost at once.
+Worker thread: the message runs its onmessage, and it scores trials, the same long loop as 00-baseline, but on its own thread.
+Meanwhile the main thread has nothing to do: paint, then your keypress runs straight away (nothing in its way), then a paint shows the letter.
+Every ~16ms the worker posts progress. Each message is a task in the main thread's task queue: onmessage → setProgressBar() → paint. The bar fills smoothly, about once per frame.
+Last message: the scores. onmessage calls resolve(), the rest of updateMatches() resumes as a microtask, renders the table (setProgressBar(1) and renderTable() run just after the block), and the final paint shows it.
+Compare: setTimeout yielded to everything and finished later; scheduler.yield() skipped paints; here the main thread never runs the loop at all.
+CHECK, simplified: the worker's postMessage() calls are shown as messages landing straight in the main task queue (really the worker port's message queue, one of the browser's task queues). The "repeat" step stands in for every progress message after the first. setProgressBar(1) and renderTable() happen just after the code shown.
 -->

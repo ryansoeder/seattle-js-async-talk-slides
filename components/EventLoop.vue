@@ -37,6 +37,7 @@ export const COLORS = {
   micro: { bg: '#0f766e', ink: '#ffffff' },
   tasks: { bg: '#96d3d1', ink: '#4f5050' },
   loop: { bg: '#4f5050', ink: '#ffffff' },
+  worker: { bg: '#6f4a2e', ink: '#ffffff' },
 } as const
 
 export const NOTES = {
@@ -44,6 +45,7 @@ export const NOTES = {
   loop: 'When the stack is empty: every microtask, then the next task',
   tasks: 'Callbacks from timers, events and messages. One per loop.',
   micro: 'Promise callbacks, await, queueMicrotask. All run before the next task.',
+  worker: 'Its own thread and event loop. Runs worker.js; no DOM.',
 }
 </script>
 
@@ -52,8 +54,8 @@ import { useSlideContext } from '@slidev/client'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
 type Kind = 'frame' | 'task' | 'micro' | 'timer'
-type Box = 'stack' | 'apis' | 'tasks' | 'micro'
-type Panel = Box | 'loop'
+type Box = 'stack' | 'apis' | 'tasks' | 'micro' | 'wstack' | 'wtasks'
+type Panel = 'stack' | 'apis' | 'tasks' | 'micro' | 'loop' | 'worker'
 /** A string, or an object whose `id` stays the same as it moves between boxes */
 type Token = string | { id: string, label: string, kind?: Kind, at?: string }
 /** One frame of an animation: whatever it leaves out falls back to the props */
@@ -62,6 +64,10 @@ interface Step {
   apis?: Token[]
   tasks?: Token[]
   microtasks?: Token[]
+  /** Frames on the worker thread's call stack, bottom first (needs `worker`) */
+  workerStack?: Token[]
+  /** Messages waiting for the worker thread, next-to-run first (needs `worker`) */
+  workerTasks?: Token[]
   active?: Panel | Panel[]
   caption?: string
   explain?: Panel[]
@@ -79,6 +85,10 @@ const props = withDefaults(defineProps<{
   tasks?: Token[]
   /** Microtasks waiting, next-to-run first */
   microtasks?: Token[]
+  workerStack?: Token[]
+  workerTasks?: Token[]
+  /** Add a Worker thread box (its own stack and task queue) next to a narrower Web APIs box */
+  worker?: boolean
   webApis?: string[]
   /** Panel(s) to highlight; the others dim */
   active?: Panel | Panel[]
@@ -106,6 +116,9 @@ const props = withDefaults(defineProps<{
   apis: () => [],
   tasks: () => [],
   microtasks: () => [],
+  workerStack: () => [],
+  workerTasks: () => [],
+  worker: false,
   webApis: () => [...TALK_APIS, ...MORE_APIS],
   active: () => [],
   caption: '',
@@ -128,6 +141,8 @@ const state = computed(() => {
     apis: s.apis ?? props.apis,
     tasks: s.tasks ?? props.tasks,
     microtasks: s.microtasks ?? props.microtasks,
+    workerStack: s.workerStack ?? props.workerStack,
+    workerTasks: s.workerTasks ?? props.workerTasks,
     active: s.active ?? props.active,
     caption: s.caption ?? props.caption,
     explain: s.explain ?? props.explain,
@@ -183,7 +198,7 @@ function inRoot(el: HTMLElement, panel: HTMLElement): Rect {
 
 function measure() {
   for (const box of Object.keys(slotEls) as Box[]) {
-    const p = panelEls[box]
+    const p = panelEls[box === 'wstack' || box === 'wtasks' ? 'worker' : box]
     const s = slotEls[box]
     if (p && s)
       layout.slots[box] = inRoot(s, p)
@@ -239,7 +254,7 @@ onBeforeUnmount(() => page?.classList.remove(PLAIN))
 const TOKEN_H = 30
 const GAP = 6
 const API_TOKEN_W = 220
-const DEFAULT_KIND: Record<Box, Kind> = { stack: 'frame', apis: 'timer', tasks: 'task', micro: 'micro' }
+const DEFAULT_KIND: Record<Box, Kind> = { stack: 'frame', apis: 'timer', tasks: 'task', micro: 'micro', wstack: 'frame', wtasks: 'task' }
 
 // ---- One thing at a time ------------------------------------------------
 // Within a click, changes play in order instead of all at once:
@@ -259,6 +274,8 @@ function whereIs(st: typeof state.value): Where {
   add(st.apis, 'apis')
   add(st.tasks, 'tasks')
   add(st.microtasks, 'micro')
+  add(st.workerStack, 'wstack')
+  add(st.workerTasks, 'wtasks')
   return m
 }
 const delays = ref<Record<string, number>>({})
@@ -296,7 +313,7 @@ const tokens = computed(() => {
       const t = typeof raw === 'string' ? { id: raw, label: raw } : raw
       const kind = t.kind ?? DEFAULT_KIND[box]
       let rect: Rect
-      if (box === 'stack' || box === 'tasks' || box === 'micro') {
+      if (box !== 'apis') {
         // Stack and queues fill from the bottom up: the first item sits on the
         // floor of the box (for a queue that's the next one to run)
         rect = { x: s.x, y: s.y + s.h - (i + 1) * TOKEN_H - i * GAP, w: s.w, h: TOKEN_H }
@@ -314,6 +331,8 @@ const tokens = computed(() => {
   place(state.value.apis, 'apis')
   place(state.value.tasks, 'tasks')
   place(state.value.microtasks, 'micro')
+  place(state.value.workerStack, 'wstack')
+  place(state.value.workerTasks, 'wtasks')
   // Stable DOM order: if a token's position in the list changed when it moved
   // boxes, Vue would re-insert its element and the browser would drop the
   // left/top transition (it would jump instead of slide).
@@ -322,7 +341,7 @@ const tokens = computed(() => {
 </script>
 
 <template>
-  <div ref="root" class="runtime" :class="{ 'no-micro': state.hidden.includes('micro'), 'compact': height < 400 }" :style="{ height: `${height}px` }">
+  <div ref="root" class="runtime" :class="{ 'no-micro': state.hidden.includes('micro'), 'compact': height < 400, 'with-worker': worker, 'no-worker': worker && state.hidden.includes('worker') }" :style="{ height: `${height}px` }">
     <section
       :ref="el => (panelEls.stack = el as HTMLElement)"
       class="panel stack" :class="panelClass('stack')"
@@ -404,6 +423,31 @@ const tokens = computed(() => {
       <div :ref="el => (slotEls.tasks = el as HTMLElement)" class="slot" />
     </section>
 
+    <!-- Between draining the microtasks and taking the next task: where the browser can paint -->
+    <div class="render-line" aria-hidden="true">
+      <span class="render-tag">Render</span>
+    </div>
+
+    <section
+      v-if="worker"
+      :ref="el => (panelEls.worker = el as HTMLElement)"
+      class="panel worker" :class="panelClass('worker')"
+      style="--c: var(--brew)"
+    >
+      <div class="label">Worker Thread</div>
+      <Transition name="note"><p v-if="shows('worker')" class="note">{{ note('worker') }}</p></Transition>
+      <div class="worker-lanes">
+        <div class="worker-lane">
+          <div class="sublabel">Stack</div>
+          <div :ref="el => (slotEls.wstack = el as HTMLElement)" class="slot" />
+        </div>
+        <div class="worker-lane">
+          <div class="sublabel">Task Queue</div>
+          <div :ref="el => (slotEls.wtasks = el as HTMLElement)" class="slot" />
+        </div>
+      </div>
+    </section>
+
     <TransitionGroup name="tok" tag="div" class="tokens">
       <div
         v-for="t in tokens" :key="t.id"
@@ -434,6 +478,7 @@ const tokens = computed(() => {
   --serve: #0f766e;    /* microtasks, 5.5:1 */
   --pour: #96d3d1;     /* tasks: the image's light "steam" teal, charcoal text 4.8:1 */
   --charcoal: #4f5050; /* event loop + tags, 8.1:1 */
+  --brew: #6f4a2e;     /* worker thread: coffee brown, the second barista, 7.8:1 */
   --night: #1e1e2e;    /* what dimmed blocks fade toward */
   --paper: #eff1f5;    /* light card behind the blocks, like the workflow slide */
   --white: #ffffff;
@@ -504,6 +549,62 @@ const tokens = computed(() => {
 .apis { grid-area: apis; }
 .micro { grid-area: micro; }
 .tasks { grid-area: tasks; }
+.worker { grid-area: worker; }
+
+/* A Worker thread takes the bottom-right column; Web APIs narrows to one */
+.runtime.with-worker {
+  grid-template-areas:
+    'stack micro tasks'
+    'loop  apis  worker';
+}
+/* Worker not revealed yet: Web APIs stretches over its column (margin percentages
+   are relative to the grid column, and both columns are the same width). One thing
+   at a time, like the Microtask Queue reveal: revealing, Web APIs slides back and
+   then the worker fades in; hiding, the worker fades out and then Web APIs stretches.
+   Web APIs is layered above the worker so they never show through each other. */
+.with-worker .apis {
+  z-index: 1;
+  transition: background-color 400ms, margin-right var(--move);
+}
+.no-worker .apis {
+  margin-right: calc(-100% - 8px);
+  transition: background-color 400ms, margin-right var(--move) 300ms;
+}
+.with-worker .worker {
+  transition: background-color 400ms, opacity 300ms 650ms;
+}
+.no-worker .worker {
+  transition: background-color 400ms, opacity 300ms;
+}
+.worker-lanes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 10px;
+}
+.worker-lane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.worker-lane:first-child {
+  flex: 1.6; /* frames like postMessage() need the room; the inbox holds one short message */
+}
+.worker-lane + .worker-lane {
+  padding-left: 10px;
+  border-left: 2px solid rgb(255 255 255 / 0.3);
+}
+.sublabel {
+  flex: none;
+  margin-bottom: 4px;
+  font-family: var(--condensed);
+  font-size: 16px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
 
 /* Charcoal tag flush with the block's top-left corner, like "FIRST DRINK" */
 .label {
@@ -634,6 +735,43 @@ const tokens = computed(() => {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+/* The boundary between the two queues, in the grid gap: microtasks drain, then the
+   browser may paint, then the next task. Grid column 3's left edge is the Task Queue's;
+   the line straddles the 8px gap before it, above the blocks and below the tokens. */
+.render-line {
+  grid-row: 1;
+  grid-column: 3;
+  justify-self: start;
+  position: relative;
+  z-index: 1;
+  width: 3px;
+  margin: -6px 0 -6px -5.5px;
+  background: var(--charcoal);
+  /* Revealed with the Microtask Queue: wait for the columns to finish moving */
+  transition: opacity 300ms 650ms;
+}
+.no-micro .render-line {
+  opacity: 0;
+  transition: opacity 200ms;
+}
+.render-tag {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  rotate: 180deg;
+  writing-mode: vertical-rl;
+  padding: 7px 4px 5px 1px;
+  background: var(--charcoal);
+  color: var(--white);
+  font-family: var(--condensed);
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 /* A chance to paint, not a guarantee: "opportunity" on purpose (SLIDES-SPEC §7) */
 .render-op {
   padding: 6px 12px 3px;
@@ -688,6 +826,7 @@ const tokens = computed(() => {
 .tokens {
   position: absolute;
   inset: 0;
+  z-index: 2; /* above a layered Web APIs box */
   pointer-events: none;
 }
 .token {
