@@ -2,8 +2,9 @@
 withDefaults(defineProps<{
   /** Big centered lines, like Neovim's start screen; the last one gets the accent color */
   title?: string[]
-  /** Lines that appear one per click, down the slide */
-  list?: string[]
+  /** Lines that appear one per click, down the slide. An item with `href` is a link,
+   *  with its address underneath (for a sources slide) */
+  list?: (string | { text: string, href: string })[]
   /** How many `list` lines are visible; pass `$clicks` */
   shown?: number
   /** Index of a `list` line to select, like a visual-mode selection */
@@ -16,6 +17,9 @@ withDefaults(defineProps<{
 })
 
 const ROWS = 30
+
+/** The address as people would type it: no protocol, www. or trailing slash */
+const shortUrl = (href: string) => href.replace(/^https?:\/\/(www\.)?/, '').replace(/[/#]+$/, '')
 </script>
 
 <template>
@@ -29,10 +33,14 @@ const ROWS = 30
           {{ line }}
         </div>
       </div>
-      <div v-if="list.length" class="list">
+      <div v-if="list.length" class="list" :class="{ 'has-links': list.some(item => typeof item !== 'string') }">
         <div v-for="(item, i) in list" :key="i" class="item" :class="{ shown: i < shown, visual: i === highlight }">
           <span class="bullet">-</span>
-          <span>{{ item }}</span>
+          <span v-if="typeof item === 'string'">{{ item }}</span>
+          <span v-else class="link-item">
+            <a :href="item.href" target="_blank" rel="noopener" class="link">{{ item.text }}</a>
+            <a :href="item.href" target="_blank" rel="noopener" class="link url">{{ shortUrl(item.href) }}</a>
+          </span>
         </div>
       </div>
       <slot />
@@ -46,6 +54,7 @@ const ROWS = 30
   --mauve: #cba6f7;
   --text: #cdd6f4;
   --surface1: #45475a;
+  --overlay1: #7f849c;
   --base: #1e1e2e;
 
   /* Cover the theme's background and frame */
@@ -133,6 +142,33 @@ const ROWS = 30
 }
 .item.visual {
   background: var(--surface1);
+}
+
+/* A list of links (a sources slide): smaller, so each name fits on one line with
+   its address under it, dimmed like a comment. The theme gives links a dashed
+   underline, so it's cleared with !important. */
+.buffer.with-title:has(.has-links) {
+  padding-top: 64px;
+}
+.buffer.with-title .list.has-links {
+  gap: 16px;
+  font-size: 20px;
+}
+.link-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.link {
+  all: unset;
+  cursor: pointer;
+  text-decoration: none !important;
+}
+.link.url {
+  color: var(--overlay1);
+  font-size: 0.7em;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 /* A screenshot dropped in the slot: centered, as large as fits */

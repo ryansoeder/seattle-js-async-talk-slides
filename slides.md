@@ -36,12 +36,6 @@ clicks: 3
 ---
 
 <NvimWindow>
-  <img src="./images/shitty-looking.jpg" alt="Pencil sketch of the two-barista timeline: espresso and milk steps along a time axis, restarting at the 20-second mark">
-</NvimWindow>
-
----
-
-<NvimWindow>
   <img class="paper" src="./images/barista-workflow.png" alt="Two baristas on one timeline: espresso and milk work run side by side, each restarting at the 20-second mark">
 </NvimWindow>
 
@@ -52,7 +46,7 @@ Two baristas share one bar without waiting on each other.
 ---
 
 ```yaml
-clicks: 6
+clicks: 7
 ```
 
 <EventLoop :steps="[
@@ -63,7 +57,12 @@ clicks: 6
   { explain: ['stack', 'loop', 'micro'], active: 'micro' },
   { explain: ['stack', 'loop', 'micro', 'tasks'], active: 'tasks' },
   { explain: ['stack', 'loop', 'micro', 'tasks', 'apis'], active: 'apis' },
-]" />
+  { explain: ['stack', 'loop', 'micro', 'tasks', 'apis'], cover: 'stack' },
+]">
+<template #cover>
+  <img src="./images/lazy.jpg" alt="Painting of a woman in a black dress sprawled asleep across a green sofa, a yellow book slipping from her hand">
+</template>
+</EventLoop>
 
 <!--
 Click 1 adds the Microtask Queue: newer than the task queue, which goes back to the first browser JavaScript (setTimeout, DOM events).
@@ -72,6 +71,7 @@ Then click through what each box is for.
 The event loop doesn't hand work out. Your code calls Web APIs; the browser queues tasks when timers fire or events arrive; promises queue microtasks. The loop moves queued work onto the stack when it's empty.
 Each loop: one task, then every microtask (including ones queued along the way), then the browser gets a chance to paint. It isn't forced to.
 The event loop and these queues come from the browser, not the JS engine.
+Click 7: lazy.jpg over the Call Stack. JavaScript itself only runs one thing at a time on the stack; the waiting, timing, networking and painting all happen in the browser.
 -->
 
 ---
@@ -1093,4 +1093,26 @@ Every ~16ms the worker posts progress. Each message is a task in the main thread
 Last message: the scores. onmessage calls resolve(), the rest of updateMatches() resumes as a microtask, renders the table (setProgressBar(1) and renderTable() run just after the block), and the final paint shows it.
 Compare: setTimeout yielded to everything and finished later; scheduler.yield() skipped paints; here the main thread never runs the loop at all.
 CHECK, simplified: the worker's postMessage() calls are shown as messages landing straight in the main task queue (really the worker port's message queue, one of the browser's task queues). The "repeat" step stands in for every progress message after the first. setProgressBar(1) and renderTable() happen just after the code shown.
+-->
+
+---
+
+<NvimWindow
+  :title="['Sources']"
+  :list="[
+    { text: 'Josh Comeau, Promises From the Ground Up', href: 'https://www.joshwcomeau.com/javascript/promises/' },
+    { text: 'Sentry, why forEach() doesn\'t work with async', href: 'https://sentry.io/answers/are-there-any-issues-with-using-async-await-with-foreach-loops-in-javascript/' },
+    { text: 'Philip Roberts, the OG event loop talk', href: 'https://www.youtube.com/watch?v=8aGhZQkoFbQ' },
+    { text: 'Lydia Hallie, a wonderful event loop visualizer', href: 'https://www.youtube.com/watch?v=eiC58R16hb8' },
+    { text: 'Courtney Yatteau, first exposure to web workers at CascadiaJS', href: 'https://www.youtube.com/watch?v=rh4RzLLPSis' },
+  ]"
+/>
+
+<!--
+Josh Comeau: "Promises From the Ground Up" (joshwcomeau.com).
+Sentry: "Are there any issues with using async/await with forEach loops in JavaScript?"
+Philip Roberts: "What the heck is the event loop anyway?", JSConf EU.
+Lydia Hallie: "JavaScript Visualized - Event Loop, Web APIs, (Micro)task Queue".
+Courtney Yatteau: "Keep the Main Thread Free With Web Workers", CascadiaJS.
+Plus MDN throughout: forEach, Promise.all/allSettled, setTimeout, scheduler.yield, Web Workers.
 -->

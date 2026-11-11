@@ -33,7 +33,7 @@ function parseSlide(slide) {
   const at = (re) => body.findIndex((l) => re.test(l))
   const elStart = at(/^<EventLoop\b/)
   if (elStart < 0) return null
-  const elEnd = body.findIndex((l, i) => i > elStart && /^\]" \/>/.test(l))
+  const elEnd = body.findIndex((l, i) => i > elStart && /^\]" ?\/?>/.test(l))
   const steps = body.slice(elStart + 1, elEnd)
   const hlLine = body.findIndex((l, i) => i < elStart && /^```\w+ \{.*\}/.test(l))
   const clicksLine = at(/^clicks: \d+$/)

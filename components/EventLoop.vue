@@ -74,6 +74,8 @@ interface Step {
   hidden?: Panel[]
   look?: Panel | ''
   render?: boolean
+  /** Lay the `cover` slot (e.g. an image) over this box */
+  cover?: Panel
 }
 
 const props = withDefaults(defineProps<{
@@ -149,6 +151,7 @@ const state = computed(() => {
     hidden: s.hidden ?? props.hidden,
     look: s.look ?? props.look,
     render: s.render ?? props.render,
+    cover: s.cover,
   }
 })
 const shows = (p: Panel) => state.value.explain.includes(p)
@@ -447,6 +450,13 @@ const tokens = computed(() => {
         </div>
       </div>
     </section>
+
+    <!-- Anything in the cover slot, laid over one box: steps say which with `cover` -->
+    <Transition name="cover">
+      <div v-if="state.cover" :key="state.cover" class="cover" :style="{ gridArea: state.cover }">
+        <slot name="cover" />
+      </div>
+    </Transition>
 
     <TransitionGroup name="tok" tag="div" class="tokens">
       <div
@@ -820,6 +830,29 @@ const tokens = computed(() => {
   letter-spacing: 0.03em;
   text-transform: uppercase;
   text-align: center;
+}
+
+/* ---- Cover: fills one box's grid area, above the blocks, below the tokens ---- */
+.cover {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.cover :slotted(img) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cover-enter-active,
+.cover-leave-active {
+  transition: opacity 400ms;
+}
+.cover-enter-from,
+.cover-leave-to {
+  opacity: 0;
 }
 
 /* ---- Tokens: white boxes with charcoal text, readable on any block ---- */
