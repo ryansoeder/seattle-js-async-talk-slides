@@ -1116,3 +1116,56 @@ Lydia Hallie: "JavaScript Visualized - Event Loop, Web APIs, (Micro)task Queue".
 Courtney Yatteau: "Keep the Main Thread Free With Web Workers", CascadiaJS.
 Plus MDN throughout: forEach, Promise.all/allSettled, setTimeout, scheduler.yield, Web Workers.
 -->
+
+---
+
+<NvimWindow>
+<div class="qr-codes">
+  <figure>
+    <img src="./images/slides-code.jpg" alt="QR code for github.com/ryansoeder/seattle-js-async-talk-slides">
+    <figcaption>Slides<span>github.com/ryansoeder/seattle-js-async-talk-slides</span></figcaption>
+  </figure>
+  <figure>
+    <img src="./images/app-code.jpg" alt="QR code for github.com/ryansoeder/seattle-js-async-talk">
+    <figcaption>Demo app<span>github.com/ryansoeder/seattle-js-async-talk</span></figcaption>
+  </figure>
+</div>
+</NvimWindow>
+
+<style>
+.qr-codes {
+  display: flex;
+  gap: 90px;
+}
+.qr-codes figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+.qr-codes img {
+  width: 260px;
+  height: 260px;
+}
+.qr-codes figcaption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #cba6f7;
+  font-size: 30px;
+  font-weight: 700;
+}
+.qr-codes figcaption span {
+  color: #7f849c;
+  font-size: 13px;
+  font-weight: 400;
+}
+</style>
+
+<!--
+Leave this up for questions.
+Slides: github.com/ryansoeder/seattle-js-async-talk-slides (the README says how to run the deck).
+Demo app: github.com/ryansoeder/seattle-js-async-talk, one branch per fix: 00-baseline, 01-promise-all, 02-allsettled, 03-settimeout, 03a-microtask, 04-scheduler-yield, 05-worker.
+-->
