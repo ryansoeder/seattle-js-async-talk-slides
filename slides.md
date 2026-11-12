@@ -1012,12 +1012,12 @@ What travels down the string is a copy of what was said, not the kid: messages a
 ---
 
 ```yaml
-clicks: 49
+clicks: 51
 ```
 
 <div style="--slidev-code-font-size: 14px; --slidev-code-line-height: 18px">
 
-```js {all|all|none|none|none|none|2-5|6|6|1|none|none|none|none|none|none|none|none|none|none|none|none|none|none|none|2|2|4|4|none|none|none|none|none|none|none|2|2|3|3|3|none|none|1|1|none|none|none|none|none}
+```js {all|all|all|all|none|none|none|none|2-5|6|6|1|none|none|none|none|none|none|none|none|none|none|none|none|none|none|none|2|2|4|4|none|none|none|none|none|none|none|2|2|3|3|3|none|none|1|1|none|none|none|none|none}
 const matchScores = await new Promise((resolve) => {
   matchWorker.onmessage = ({ data: message }) => {
     if (message.matchScores) resolve(message.matchScores);
@@ -1031,6 +1031,8 @@ const matchScores = await new Promise((resolve) => {
 
 <EventLoop class="mt-2" worker :height="345" :steps="[
   { explain: ['apis'], hidden: ['worker'] },
+  { explain: ['apis'], active: 'worker' },
+  { explain: ['apis'], active: 'worker', cover: 'stack' },
   { explain: ['apis'], active: 'worker' },
   { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'tasks', active: 'tasks', caption: 'waiting for a click' },
   { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], tasks: [{ id: 'click', label: 'updateMatches' }], look: 'tasks', active: 'tasks', caption: 'click → task queued' },
@@ -1080,10 +1082,15 @@ const matchScores = await new Promise((resolve) => {
   { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'micro', active: 'micro', caption: 'any microtasks? none' },
   { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'micro', active: 'loop', render: true, caption: 'paint: results table' },
   { apis: [{ id: 'listener', label: 'click → updateMatches', at: 'addEventListener' }], look: 'tasks', active: 'tasks', caption: 'no tasks → wait' },
-]" />
+]">
+<template #cover>
+  <img src="./images/lazy.jpg" alt="Painting of a woman in a black dress sprawled asleep across a green sofa, a yellow book slipping from her hand">
+</template>
+</EventLoop>
 
 <!--
 The Segment 5 fix from 05-worker through the event loop: the updateMatches() FIX block on top, the main thread's event loop, and a new box for the worker thread with its own stack and task queue. Opens paused.
+Click 2: lazy.jpg over the main thread's Call Stack again: with a worker, the main thread gets to be even lazier; the worker does the heavy lifting. Click 3 takes it away, before the animation starts.
 Click 1 reveals the Worker Thread box (Web APIs slides over to make room), the same way the Microtask Queue appeared on the explainer slide: a second thread, with its own call stack and task queue, and its own event loop.
 Assumes a search already ran, so the worker already has a copy of allTrials.
 The click task: set onmessage, post the profile to the worker (a copy), await. The main stack is empty almost at once.
